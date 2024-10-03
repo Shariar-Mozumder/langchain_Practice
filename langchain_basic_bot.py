@@ -15,8 +15,8 @@ from langchain_core.runnables import RunnableMap
 
 
 # Your Hugging Face API key (if using Hugging Face Hub)
-# huggingface_api_key = "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"  # Replace with your actual Hugging Face Hub API key
-huggingface_api_key = "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"  # Replace with your actual Hugging Face Hub API key
+# huggingface_api_key = ""  # Replace with your actual Hugging Face Hub API key
+huggingface_api_key = ""  # Replace with your actual Hugging Face Hub API key
 
 
 def generate_pet_name(animal_type, pet_color):
