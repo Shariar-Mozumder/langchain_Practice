@@ -1,6 +1,3 @@
 *.dll
 *.lib
 langchain_env/
-pdfs/
-.env
-langchain_env1/

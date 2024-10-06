@@ -10,9 +10,7 @@ from dotenv import load_dotenv
 from langchain_huggingface import HuggingFaceEndpoint 
 from langchain.embeddings.huggingface import HuggingFaceEmbeddings
 from langchain.schema import Document
-from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferMemory
-from uuid import uuid4
 import os
 
 # Load environment variables from the .env file
@@ -21,8 +19,8 @@ load_dotenv()
 # Retrieve the Hugging Face API token
 huggingface_api_key = os.getenv("HUGGINGFACEHUB_API_TOKEN")
 
-# Initialize memory to store conversation history
-memory = ConversationBufferMemory()
+# Initialize memory to store conversation history (limit to last 6 turns)
+memory = ConversationBufferMemory(memory_key="history", return_messages=True)
 
 # List of PDF paths
 pdf_paths = [
@@ -86,53 +84,31 @@ def get_response_from_query(query):
         token=huggingface_api_key
     )
 
+    # Create the prompt template with 2 input variables
     prompt = PromptTemplate(
-        input_variables=["history", "question", "docs"],
+        input_variables=["input"],
         template="""
         You are a helpful assistant that answers questions based on conversations and provided documents.
         
-        Only use the factual information from the documents to answer the question.
-        
-        If you feel like you don't have enough information to answer the question, say "I don't know".
-        
-        Your answers should be verbose and detailed.
-        Use the conversation history and the provided documents to provide a coherent and relevant response:
-        
-        Conversation History:
-        {history}
-        
-        Question:
-        {question}
-        
-        Relevant Documents:
-        {docs}
+        {input}
         
         Assistant:
         """
     )
 
-    # Create the conversation chain with memory
-    conversation = ConversationChain(
-        llm=llm,
-        memory=memory,
-        prompt=prompt
-    )
-
-    # Retrieve conversation history
+    # Combine conversation history, question, and documents into one string
     conversation_history = memory.load_memory_variables({})["history"]
-
-    # Format the relevant documents as a string
     relevant_docs = "\n".join([doc.page_content for doc in similar_docs])
+    
+    # Combine everything into a single `input` variable
+    combined_input = f"Conversation History:\n{conversation_history}\n\nQuestion:\n{query}\n\nRelevant Documents:\n{relevant_docs}"
 
-    # Generate the final response using conversation chain
-    response = conversation.run({
-        "history": conversation_history,
-        "question": query,
-        "docs": relevant_docs
-    })
+    # Generate the final response using the LLM chain
+    chain = LLMChain(llm=llm, prompt=prompt)
+    response = chain.run({"input": combined_input})
     
     # Update the memory with the new interaction
-    memory.save_context({"history": conversation_history, "question": query}, {"response": response})
+    memory.save_context({"input": combined_input}, {"response": response})
 
     return response
 
@@ -151,5 +127,6 @@ if __name__ == "__main__":
 
         # Display last 6 interactions from memory
         history = memory.load_memory_variables({})
-        print("\n--- Conversation History ---")
-        print(history['history'])
+        print("\n--- Last 6 Conversations ---")
+        for message in history['history']:
+            print(message)
